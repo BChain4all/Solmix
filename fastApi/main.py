@@ -1,3 +1,4 @@
+import datetime
 import re
 
 from fastapi import FastAPI
@@ -87,18 +88,23 @@ async def explain(item: smartContractItem):
 
 @app.post("/generatedeploycode", response_model=str)
 async def generatedeploycode(item: smartContractItem):
-    template = deployment_template % (extract_contract_name(item.code), extract_contract_name(item.code))
+    contract_name = extract_contract_name(item.code)
+    template = deployment_template % (contract_name, contract_name)
     prompt = compose_generatedeploycode_prompt(item.code, template)
     result = run_prompt(prompt)
     return result
 
 @app.post("/deploy", response_model=str)
 async def deploy(item: deployItem):
-    hash = random.getrandbits(128)
-    with open(f"../hardhat3/contracts/{hash}.sol", "w") as text_file:
-        text_file.write(item.solcode)
-    with open(f"../hardhat3/ignition/modules/{hash}.ts", "w") as f:
-        f.write(item.tscode)
+    contract_name = extract_contract_name(item.solcode)
+    new_contract_name = contract_name + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    solcode = item.solcode.replace(contract_name, new_contract_name)
+    tscode = item.tscode.replace(contract_name, new_contract_name)
+
+    with open(f"../hardhat3/contracts/{new_contract_name}.sol", "w") as text_file:
+        text_file.write(solcode)
+    with open(f"../hardhat3/ignition/modules/{new_contract_name}.ts", "w") as f:
+        f.write(tscode)
 
     #deploy = subprocess.Popen(["npx", "hardhat", "run", f"scripts/deployments/{hash}.ts", "--network", "dev"],
     #                          cwd="../hardhat/",
